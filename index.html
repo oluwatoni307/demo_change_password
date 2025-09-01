@@ -13,14 +13,12 @@
 
   <script>
     // 1. Configure Supabase
-const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
-const supabaseUrl = "https://ucejrkydjqjymsepgsyz.supabase.co";
-    const supabase = supabase.createClient(
-      supabaseUrl, // Replace with your Supabase URL
-      anonKey                 // Replace with your anon key
-    );
+    const { createClient } = supabase;
+    const supabaseUrl = "https://ucejrkydjqjymsepgsyz.supabase.co";
+    const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE"; // ⚠️ Replace with your real anon key
+    const client = createClient(supabaseUrl, anonKey);
 
-    // 2. Extract token from URL
+    // 2. Handle reset
     async function handleReset() {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const access_token = hashParams.get("access_token");
@@ -31,15 +29,20 @@ const supabaseUrl = "https://ucejrkydjqjymsepgsyz.supabase.co";
         return;
       }
 
-      // 3. Set session from token
-      await supabase.auth.setSession({
+      // 3. Set session
+      const { error: sessionError } = await client.auth.setSession({
         access_token,
         refresh_token,
       });
 
+      if (sessionError) {
+        document.getElementById("status").innerText = "Session error: " + sessionError.message;
+        return;
+      }
+
       // 4. Update password
       const newPassword = document.getElementById("new-password").value;
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await client.auth.updateUser({ password: newPassword });
 
       if (error) {
         document.getElementById("status").innerText = "Error: " + error.message;
