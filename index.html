@@ -2,56 +2,247 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reset Password</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 500;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      box-sizing: border-box;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover:not(:disabled) {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 500;
+    }
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 15px;
+      color: #666;
+    }
+    .password-requirements {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .reset-form {
+      display: none;
+    }
+    .reset-form.show {
+      display: block;
+    }
+
+  </style>
 </head>
 <body>
-  <h2>Reset Your Password</h2>
-  <input type="password" id="new-password" placeholder="Enter new password" />
-  <button id="reset-btn">Update Password</button>
-  <p id="status"></p>
+  <div class="container">
+    <h2>Reset Your Password</h2>
+    
+    <div id="initial-status" class="status info">
+      Please wait while we verify your reset link...
+    </div>
+
+    <div id="reset-form" class="reset-form">
+      <div class="form-group">
+        <label for="new-password">New Password</label>
+        <input type="password" id="new-password" placeholder="Enter your new password" minlength="6" />
+        <div class="password-requirements">
+          Password must be at least 6 characters long
+        </div>
+      </div>
+      <button id="reset-btn">Update Password</button>
+      <div class="loading" id="loading">Updating password...</div>
+    </div>
+    
+    <div id="status"></div>
+    
+
+  </div>
 
   <script>
-    // 1. Configure Supabase
+    // Configure Supabase
     const { createClient } = supabase;
     const supabaseUrl = "https://ucejrkydjqjymsepgsyz.supabase.co";
-    const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE"; // ⚠️ Replace with your real anon key
+    const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
     const client = createClient(supabaseUrl, anonKey);
 
-    // 2. Handle reset
-    async function handleReset() {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const access_token = hashParams.get("access_token");
-      const refresh_token = hashParams.get("refresh_token");
+    let isPasswordRecoveryMode = false;
 
-      if (!access_token) {
-        document.getElementById("status").innerText = "Invalid reset link.";
+    function showStatus(message, type = 'info') {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = `status ${type}`;
+      statusEl.style.display = 'block';
+    }
+
+    function hideInitialStatus() {
+      document.getElementById('initial-status').style.display = 'none';
+    }
+
+    function showResetForm() {
+      hideInitialStatus();
+      document.getElementById('reset-form').classList.add('show');
+      document.getElementById('new-password').focus();
+    }
+
+    async function handlePasswordUpdate() {
+      const newPasswordInput = document.getElementById('new-password');
+      const resetBtn = document.getElementById('reset-btn');
+      const loading = document.getElementById('loading');
+      
+      const newPassword = newPasswordInput.value.trim();
+      
+      // Validate password
+      if (!newPassword) {
+        showStatus('Please enter a new password.', 'error');
+        return;
+      }
+      
+      if (newPassword.length < 6) {
+        showStatus('Password must be at least 6 characters long.', 'error');
         return;
       }
 
-      // 3. Set session
-      const { error: sessionError } = await client.auth.setSession({
-        access_token,
-        refresh_token,
-      });
-
-      if (sessionError) {
-        document.getElementById("status").innerText = "Session error: " + sessionError.message;
+      if (!isPasswordRecoveryMode) {
+        showStatus('Password recovery session expired. Please request a new reset link.', 'error');
         return;
       }
 
-      // 4. Update password
-      const newPassword = document.getElementById("new-password").value;
-      const { error } = await client.auth.updateUser({ password: newPassword });
+      // Show loading state
+      resetBtn.disabled = true;
+      loading.style.display = 'block';
+      document.getElementById('status').style.display = 'none';
 
-      if (error) {
-        document.getElementById("status").innerText = "Error: " + error.message;
-      } else {
-        document.getElementById("status").innerText = "Password updated successfully!";
+      try {
+        // Update password - Supabase automatically uses the session from the recovery flow
+        const { error } = await client.auth.updateUser({ 
+          password: newPassword 
+        });
+        
+        if (error) {
+          throw error;
+        }
+
+        showStatus('✅ Password updated successfully!', 'success');
+        newPasswordInput.value = '';
+        resetBtn.style.display = 'none';
+        
+      } catch (error) {
+        console.error('Password update error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      } finally {
+        resetBtn.disabled = false;
+        loading.style.display = 'none';
       }
     }
 
-    document.getElementById("reset-btn").addEventListener("click", handleReset);
+    // Listen for auth state changes - this is the correct way to handle Supabase password recovery
+    client.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event, 'Session:', !!session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // User has clicked the reset link and is now in password recovery mode
+        isPasswordRecoveryMode = true;
+        showResetForm();
+        console.log('Password recovery mode activated');
+      } else if (event === 'SIGNED_IN' && isPasswordRecoveryMode) {
+        // Password has been successfully updated
+        console.log('Password successfully updated');
+      } else if (event === 'SIGNED_OUT') {
+        isPasswordRecoveryMode = false;
+      }
+    });
+
+    // Add event listeners
+    document.getElementById('reset-btn').addEventListener('click', handlePasswordUpdate);
+    
+    // Allow Enter key to submit
+    document.getElementById('new-password').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        handlePasswordUpdate();
+      }
+    });
+
+    // Check if we're not in password recovery mode after a short delay
+    setTimeout(() => {
+      if (!isPasswordRecoveryMode) {
+        hideInitialStatus();
+        showStatus('❌ Invalid or expired reset link. Please request a new password reset from your app.', 'error');
+      }
+    }, 3000);
   </script>
 </body>
 </html>
