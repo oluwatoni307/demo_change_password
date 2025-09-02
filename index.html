@@ -156,26 +156,26 @@
   }
 
   /* ---------- main flow ---------- */
-  async function initializePasswordReset() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code      = urlParams.get('code');
+async function initializePasswordReset() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
 
-    if (!code) {
-      hideInitialStatus();
-      showStatus('Missing reset code in link.', 'error');
-      return;
-    }
-
-    const { error } = await client.auth.exchangeCodeForSession(code);
-    if (error) {
-      hideInitialStatus();
-      showStatus('Invalid or expired reset link.', 'error');
-      return;
-    }
-
-    isPasswordRecoveryMode = true;
-    showResetForm();
+  if (!code) {
+    hideInitialStatus();
+    showStatus('Missing reset code in link.', 'error');
+    return;
   }
+
+  const { error } = await client.auth.exchangeCodeForSession(code);
+  if (error) {
+    hideInitialStatus();
+    showStatus('Invalid or expired reset link.', 'error');
+    return;
+  }
+
+  isPasswordRecoveryMode = true;
+  showResetForm();
+}
 
   async function handlePasswordUpdate() {
     const input    = document.getElementById('new-password');
