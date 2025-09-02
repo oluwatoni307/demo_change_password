@@ -107,28 +107,35 @@
   }
 
   /* ---------- main flow ---------- */
-  async function initializePasswordReset() {
-    const { code, access_token, refresh_token } = getAuthFromUrl();
+async function initializePasswordReset() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
 
-    let error = null;
-    if (code) {
-      ({ error } = await client.auth.exchangeCodeForSession(code));
-    } else if (access_token && refresh_token) {
-      ({ error } = await client.auth.setSession({ access_token, refresh_token }));
-    } else {
-      hideInitialStatus();
-      showStatus('Missing or invalid reset link.', 'error');
-      return;
-    }
-
-    if (error) {
-      hideInitialStatus();
-      showStatus('Invalid or expired reset link.', 'error');
-      return;
-    }
-
-    showResetForm();
+  if (!code) {
+    showStatus('Missing reset code in link.', 'error');
+    return;
   }
+
+  // Exchange code for session
+  const { data, error } = await client.auth.exchangeCodeForSession(code);
+  console.log("exchange result:", data, error);
+
+  if (error) {
+    showStatus('Invalid or expired reset link.', 'error');
+    return;
+  }
+
+  // Verify that we are logged in now
+  const { data: userData } = await client.auth.getUser();
+  console.log("Current user:", userData);
+
+  if (!userData?.user) {
+    showStatus('Could not establish session.', 'error');
+    return;
+  }
+
+  showResetForm();
+}
 
   async function handlePasswordUpdate() {
     const input    = document.getElementById('new-password');
