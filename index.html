@@ -76,66 +76,28 @@
   const supabaseAnon  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
   const client        = createClient(supabaseUrl, supabaseAnon);
 
-  /* ---------- helpers ---------- */
+
   function showStatus(msg, type = 'info') {
     const el = document.getElementById('status');
     el.textContent = msg;
     el.className   = `status ${type}`;
     el.style.display = 'block';
   }
-  function hideInitialStatus() {
-    document.getElementById('initial-status').style.display = 'none';
-  }
+
   function showResetForm() {
-    hideInitialStatus();
+    document.getElementById('initial-status').style.display = 'none';
     document.getElementById('reset-form').classList.add('show');
     document.getElementById('new-password').focus();
   }
 
-  /* ---------- token parsing ---------- */
-  function getAuthFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (code) return { code };
+  // 👇 Listen for auth state change
+  client.auth.onAuthStateChange((event, session) => {
+    console.log("Auth event:", event, session);
 
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const access_token = hashParams.get('access_token');
-    const refresh_token = hashParams.get('refresh_token');
-    if (access_token && refresh_token) return { access_token, refresh_token };
-
-    return {};
-  }
-
-  /* ---------- main flow ---------- */
-async function initializePasswordReset() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-
-  if (!code) {
-    showStatus('Missing reset code in link.', 'error');
-    return;
-  }
-
-  // Exchange code for session
-  const { data, error } = await client.auth.exchangeCodeForSession(code);
-  console.log("exchange result:", data, error);
-
-  if (error) {
-    showStatus('Invalid or expired reset link.', 'error');
-    return;
-  }
-
-  // Verify that we are logged in now
-  const { data: userData } = await client.auth.getUser();
-  console.log("Current user:", userData);
-
-  if (!userData?.user) {
-    showStatus('Could not establish session.', 'error');
-    return;
-  }
-
-  showResetForm();
-}
+    if (event === "PASSWORD_RECOVERY") {
+      showResetForm();
+    }
+  });
 
   async function handlePasswordUpdate() {
     const input    = document.getElementById('new-password');
@@ -153,6 +115,7 @@ async function initializePasswordReset() {
     loading.style.display = 'block';
     showStatus('', '');
 
+    // 👇 This updates the password using the active recovery session
     const { error } = await client.auth.updateUser({ password });
 
     btn.disabled = false;
@@ -161,20 +124,17 @@ async function initializePasswordReset() {
     if (error) {
       showStatus(`❌ ${error.message}`, 'error');
     } else {
-      showStatus('✅ Password updated! You can now log in with your new password.', 'success');
+      showStatus('✅ Password updated!', 'success');
       input.value = '';
       btn.style.display = 'none';
-      input.disabled = true;
     }
   }
 
-  /* ---------- events ---------- */
   document.getElementById('reset-btn').addEventListener('click', handlePasswordUpdate);
   document.getElementById('new-password').addEventListener('keypress', e => {
     if (e.key === 'Enter') handlePasswordUpdate();
   });
 
-  window.addEventListener('load', initializePasswordReset);
 </script>
 </body>
 </html>
