@@ -129,170 +129,91 @@
     <div id="status"></div>
   </div>
 
-  <script>
-    // Configure Supabase
-    const { createClient } = supabase;
-    const supabaseUrl = "https://ucejrkydjqjymsepgsyz.supabase.co";
-    const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
-    const client = createClient(supabaseUrl, anonKey);
+ <script>
+  const { createClient } = supabase;
+  const supabaseUrl   = "https://ucejrkydjqjymsepgsyz.supabase.co";
+  const supabaseAnon  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
+  const client        = createClient(supabaseUrl, supabaseAnon);
 
-    let isPasswordRecoveryMode = false;
+  let isPasswordRecoveryMode = false;
 
-    function showStatus(message, type = 'info') {
-      const statusEl = document.getElementById('status');
-      statusEl.textContent = message;
-      statusEl.className = `status ${type}`;
-      statusEl.style.display = 'block';
-    }
+  /* ---------- helpers ---------- */
+  function showStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className   = `status ${type}`;
+    el.style.display = 'block';
+  }
 
-    function hideInitialStatus() {
-      document.getElementById('initial-status').style.display = 'none';
-    }
+  function hideInitialStatus() {
+    document.getElementById('initial-status').style.display = 'none';
+  }
 
-    function showResetForm() {
+  function showResetForm() {
+    hideInitialStatus();
+    document.getElementById('reset-form').classList.add('show');
+    document.getElementById('new-password').focus();
+  }
+
+  /* ---------- main flow ---------- */
+  async function initializePasswordReset() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code      = urlParams.get('code');
+
+    if (!code) {
       hideInitialStatus();
-      document.getElementById('reset-form').classList.add('show');
-      document.getElementById('new-password').focus();
+      showStatus('Missing reset code in link.', 'error');
+      return;
     }
 
-    // Parse URL parameters to handle both regular and PKCE tokens
-    function getUrlParams() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      
-      // Combine URL and hash parameters
-      const params = {};
-      for (const [key, value] of urlParams.entries()) {
-        params[key] = value;
-      }
-      for (const [key, value] of hashParams.entries()) {
-        params[key] = value;
-      }
-      
-      return params;
+    const { error } = await client.auth.exchangeCodeForSession(code);
+    if (error) {
+      hideInitialStatus();
+      showStatus('Invalid or expired reset link.', 'error');
+      return;
     }
 
-    async function handlePasswordUpdate() {
-      const newPasswordInput = document.getElementById('new-password');
-      const resetBtn = document.getElementById('reset-btn');
-      const loading = document.getElementById('loading');
-      
-      const newPassword = newPasswordInput.value.trim();
-      
-      // Validate password
-      if (!newPassword) {
-        showStatus('Please enter a new password.', 'error');
-        return;
-      }
-      
-      if (newPassword.length < 6) {
-        showStatus('Password must be at least 6 characters long.', 'error');
-        return;
-      }
+    isPasswordRecoveryMode = true;
+    showResetForm();
+  }
 
-      if (!isPasswordRecoveryMode) {
-        showStatus('Password recovery session expired. Please request a new reset link.', 'error');
-        return;
-      }
+  async function handlePasswordUpdate() {
+    const input    = document.getElementById('new-password');
+    const password = input.value.trim();
 
-      // Show loading state
-      resetBtn.disabled = true;
-      loading.style.display = 'block';
-      document.getElementById('status').style.display = 'none';
-
-      try {
-        // Update password - Supabase automatically uses the session from the recovery flow
-        const { error } = await client.auth.updateUser({ 
-          password: newPassword 
-        });
-        
-        if (error) {
-          throw error;
-        }
-
-        showStatus('✅ Password updated successfully!', 'success');
-        newPasswordInput.value = '';
-        resetBtn.style.display = 'none';
-        
-      } catch (error) {
-        console.error('Password update error:', error);
-        showStatus(`❌ Error: ${error.message}`, 'error');
-      } finally {
-        resetBtn.disabled = false;
-        loading.style.display = 'none';
-      }
+    if (password.length < 6) {
+      showStatus('Password must be at least 6 characters.', 'error');
+      return;
     }
 
-    // Initialize the page and handle recovery tokens
-    async function initializePasswordReset() {
-      try {
-        // Debug: Log the current URL and parameters
-        console.log('Full URL:', window.location.href);
-        console.log('Search params:', window.location.search);
-        console.log('Hash:', window.location.hash);
-        
-        // Parse URL parameters for debugging
-        const params = getUrlParams();
-        console.log('Parsed parameters:', params);
-        
-        // Handle code parameter (common for Flutter/mobile apps)
-        if (params.code) {
-          console.log('Found code parameter, attempting exchange...');
-          try {
-            const { data, error } = await client.auth.exchangeCodeForSession(params.code);
-            
-            if (error) {
-              throw error;
-            }
-            
-            console.log('Code exchange successful', data);
-            isPasswordRecoveryMode = true;
-            hideInitialStatus();
-            showResetForm();
-            return;
-          } catch (codeError) {
-            console.error('Code exchange failed:', codeError);
-            // Fall through to wait for PASSWORD_RECOVERY event
-          }
-        }
-        
-        // If no code or code exchange failed, wait for PASSWORD_RECOVERY event
-        console.log('Waiting for PASSWORD_RECOVERY event...');
-        
-      } catch (error) {
-        console.error('Recovery initialization error:', error);
-        hideInitialStatus();
-        showStatus(`❌ Error initializing reset: ${error.message}`, 'error');
-      }
+    const btn     = document.getElementById('reset-btn');
+    const loading = document.getElementById('loading');
+
+    btn.disabled = true;
+    loading.style.display = 'block';
+    showStatus('', '');
+
+    const { error } = await client.auth.updateUser({ password });
+
+    btn.disabled = false;
+    loading.style.display = 'none';
+
+    if (error) {
+      showStatus(`❌ ${error.message}`, 'error');
+    } else {
+      showStatus('✅ Password updated!', 'success');
+      input.value = '';
+      btn.style.display = 'none';
     }
+  }
 
-    // Listen for auth state changes
-    client.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event, 'Session:', !!session);
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        isPasswordRecoveryMode = true;
-        showResetForm();
-        console.log('Password recovery mode activated');
-      } else if (event === 'SIGNED_IN' && isPasswordRecoveryMode) {
-        console.log('Password successfully updated');
-      } else if (event === 'SIGNED_OUT') {
-        isPasswordRecoveryMode = false;
-      }
-    });
+  /* ---------- events ---------- */
+  document.getElementById('reset-btn').addEventListener('click', handlePasswordUpdate);
+  document.getElementById('new-password').addEventListener('keypress', e => {
+    if (e.key === 'Enter') handlePasswordUpdate();
+  });
 
-    // Add event listeners
-    document.getElementById('reset-btn').addEventListener('click', handlePasswordUpdate);
-    
-    // Allow Enter key to submit
-    document.getElementById('new-password').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        handlePasswordUpdate();
-      }
-    });
-
-    // Initialize when page loads
-    window.addEventListener('load', initializePasswordReset);
-  </script>
+  window.addEventListener('load', initializePasswordReset);
+</script>
 </body>
 </html>
