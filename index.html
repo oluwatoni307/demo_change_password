@@ -226,70 +226,23 @@
     // Initialize the page and handle recovery tokens
     async function initializePasswordReset() {
       try {
-        // First, try to get the session to see if we're already authenticated
-        const { data: { session } } = await client.auth.getSession();
+        // Debug: Log the current URL and parameters
+        console.log('Full URL:', window.location.href);
+        console.log('Search params:', window.location.search);
+        console.log('Hash:', window.location.hash);
         
-        if (session) {
-          console.log('Found existing session');
-          isPasswordRecoveryMode = true;
-          showResetForm();
-          return;
-        }
-
-        // Parse URL parameters to handle PKCE tokens
+        // Parse URL parameters for debugging
         const params = getUrlParams();
+        console.log('Parsed parameters:', params);
         
-        if ((params.token_hash || params.token) && params.type === 'recovery') {
-          console.log('Found recovery token, attempting to exchange...');
-          
-          // For PKCE tokens (token_hash parameter), we need to call verifyOtp
-          if (params.token_hash) {
-            const { data, error } = await client.auth.verifyOtp({
-              token_hash: params.token_hash,
-              type: 'recovery'
-            });
-            
-            if (error) {
-              throw error;
-            }
-            
-            console.log('PKCE token exchange successful');
-            isPasswordRecoveryMode = true;
-            showResetForm();
-          } else if (params.token && params.token.startsWith('pkce_')) {
-            // Legacy PKCE handling
-            const { data, error } = await client.auth.verifyOtp({
-              token_hash: params.token,
-              type: 'recovery'
-            });
-            
-            if (error) {
-              throw error;
-            }
-            
-            console.log('PKCE token exchange successful');
-            isPasswordRecoveryMode = true;
-            showResetForm();
-          } else {
-            // For regular tokens, the session should be established automatically
-            setTimeout(async () => {
-              const { data: { session } } = await client.auth.getSession();
-              if (session) {
-                isPasswordRecoveryMode = true;
-                showResetForm();
-              } else {
-                throw new Error('Failed to establish recovery session');
-              }
-            }, 1000);
-          }
-        } else {
-          throw new Error('No recovery token found in URL');
-        }
+        // Don't try to manually parse tokens - let Supabase handle it
+        // The page will be activated through the PASSWORD_RECOVERY event
+        console.log('Waiting for Supabase to process recovery link...');
         
       } catch (error) {
         console.error('Recovery initialization error:', error);
         hideInitialStatus();
-        showStatus(`❌ Invalid or expired reset link: ${error.message}`, 'error');
+        showStatus(`❌ Error initializing reset: ${error.message}`, 'error');
       }
     }
 
