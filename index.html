@@ -19,98 +19,39 @@
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    h2 {
-      text-align: center;
-      color: #333;
-      margin-bottom: 30px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      color: #555;
-      font-weight: 500;
-    }
+    h2 { text-align: center; color: #333; margin-bottom: 30px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
     input[type="password"] {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 6px;
-      font-size: 16px;
-      transition: border-color 0.3s;
-      box-sizing: border-box;
+      width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px;
+      font-size: 16px; transition: border-color 0.3s; box-sizing: border-box;
     }
-    input[type="password"]:focus {
-      outline: none;
-      border-color: #4CAF50;
-    }
+    input[type="password"]:focus { outline: none; border-color: #4CAF50; }
     button {
-      width: 100%;
-      padding: 12px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.3s;
+      width: 100%; padding: 12px; background-color: #4CAF50; color: white;
+      border: none; border-radius: 6px; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: background-color 0.3s;
     }
-    button:hover:not(:disabled) {
-      background-color: #45a049;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
+    button:hover:not(:disabled) { background-color: #45a049; }
+    button:disabled { background-color: #cccccc; cursor: not-allowed; }
     .status {
-      margin-top: 15px;
-      padding: 15px;
-      border-radius: 6px;
-      text-align: center;
-      font-weight: 500;
+      margin-top: 15px; padding: 15px; border-radius: 6px; text-align: center;
+      font-weight: 500; display: none;
     }
-    .status.success {
-      background-color: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-    .status.error {
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-    .status.info {
-      background-color: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
-    }
-    .loading {
-      display: none;
-      text-align: center;
-      margin-top: 15px;
-      color: #666;
-    }
-    .password-requirements {
-      font-size: 14px;
-      color: #666;
-      margin-top: 5px;
-    }
-    .reset-form {
-      display: none;
-    }
-    .reset-form.show {
-      display: block;
-    }
+    .status.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .status.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .loading { display: none; text-align: center; margin-top: 15px; color: #666; }
+    .password-requirements { font-size: 14px; color: #666; margin-top: 5px; }
+    .reset-form { display: none; }
+    .reset-form.show { display: block; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Reset Your Password</h2>
     
-    <div id="initial-status" class="status info">
+    <div id="initial-status" class="status info" style="display:block;">
       Please wait while we verify your reset link...
     </div>
 
@@ -129,13 +70,11 @@
     <div id="status"></div>
   </div>
 
- <script>
+<script>
   const { createClient } = supabase;
   const supabaseUrl   = "https://ucejrkydjqjymsepgsyz.supabase.co";
-  const supabaseAnon  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZWpya3lkanFqeW1zZXBnc3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwOTA5NTksImV4cCI6MjA2NzY2Njk1OX0.G8qm1CH6_dbp6T0SunrBEIzQXOA9lCrCwGTjKwwGfkE";
+  const supabaseAnon  = "YOUR_PUBLIC_ANON_KEY";
   const client        = createClient(supabaseUrl, supabaseAnon);
-
-  let isPasswordRecoveryMode = false;
 
   /* ---------- helpers ---------- */
   function showStatus(msg, type = 'info') {
@@ -144,38 +83,52 @@
     el.className   = `status ${type}`;
     el.style.display = 'block';
   }
-
   function hideInitialStatus() {
     document.getElementById('initial-status').style.display = 'none';
   }
-
   function showResetForm() {
     hideInitialStatus();
     document.getElementById('reset-form').classList.add('show');
     document.getElementById('new-password').focus();
   }
 
+  /* ---------- token parsing ---------- */
+  function getAuthFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) return { code };
+
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const access_token = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
+    if (access_token && refresh_token) return { access_token, refresh_token };
+
+    return {};
+  }
+
   /* ---------- main flow ---------- */
-async function initializePasswordReset() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
+  async function initializePasswordReset() {
+    const { code, access_token, refresh_token } = getAuthFromUrl();
 
-  if (!code) {
-    hideInitialStatus();
-    showStatus('Missing reset code in link.', 'error');
-    return;
+    let error = null;
+    if (code) {
+      ({ error } = await client.auth.exchangeCodeForSession(code));
+    } else if (access_token && refresh_token) {
+      ({ error } = await client.auth.setSession({ access_token, refresh_token }));
+    } else {
+      hideInitialStatus();
+      showStatus('Missing or invalid reset link.', 'error');
+      return;
+    }
+
+    if (error) {
+      hideInitialStatus();
+      showStatus('Invalid or expired reset link.', 'error');
+      return;
+    }
+
+    showResetForm();
   }
-
-  const { error } = await client.auth.exchangeCodeForSession(code);
-  if (error) {
-    hideInitialStatus();
-    showStatus('Invalid or expired reset link.', 'error');
-    return;
-  }
-
-  isPasswordRecoveryMode = true;
-  showResetForm();
-}
 
   async function handlePasswordUpdate() {
     const input    = document.getElementById('new-password');
@@ -201,9 +154,10 @@ async function initializePasswordReset() {
     if (error) {
       showStatus(`❌ ${error.message}`, 'error');
     } else {
-      showStatus('✅ Password updated!', 'success');
+      showStatus('✅ Password updated! You can now log in with your new password.', 'success');
       input.value = '';
       btn.style.display = 'none';
+      input.disabled = true;
     }
   }
 
