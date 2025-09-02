@@ -235,9 +235,29 @@
         const params = getUrlParams();
         console.log('Parsed parameters:', params);
         
-        // Don't try to manually parse tokens - let Supabase handle it
-        // The page will be activated through the PASSWORD_RECOVERY event
-        console.log('Waiting for Supabase to process recovery link...');
+        // Handle code parameter (common for Flutter/mobile apps)
+        if (params.code) {
+          console.log('Found code parameter, attempting exchange...');
+          try {
+            const { data, error } = await client.auth.exchangeCodeForSession(params.code);
+            
+            if (error) {
+              throw error;
+            }
+            
+            console.log('Code exchange successful', data);
+            isPasswordRecoveryMode = true;
+            hideInitialStatus();
+            showResetForm();
+            return;
+          } catch (codeError) {
+            console.error('Code exchange failed:', codeError);
+            // Fall through to wait for PASSWORD_RECOVERY event
+          }
+        }
+        
+        // If no code or code exchange failed, wait for PASSWORD_RECOVERY event
+        console.log('Waiting for PASSWORD_RECOVERY event...');
         
       } catch (error) {
         console.error('Recovery initialization error:', error);
